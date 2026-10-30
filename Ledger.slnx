@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Ledger.Cli/Ledger.Cli.csproj" />
     <Project Path="src/Ledger.Domain/Ledger.Domain.csproj" />
