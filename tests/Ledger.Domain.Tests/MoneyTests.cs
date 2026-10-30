@@ -51,6 +51,15 @@ public class MoneyTests
     }
 
     [Fact]
+    public void Equals_SameCurrency_ReturnsTrue()
+    {
+        Money money = new(10.5m, Currency.USD);
+        Money money2 = new(10.5m, Currency.USD);
+
+        Assert.True(money == money2);
+    }
+
+    [Fact]
     public void ToString_ReturnsAmountAndCurrency()
     {
         Money money = new(10.5m, Currency.USD);
