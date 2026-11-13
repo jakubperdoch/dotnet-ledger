@@ -1,3 +1,5 @@
+using Ledger.Domain.Exceptions;
+
 namespace Ledger.Domain;
 
 public sealed class Account
@@ -15,7 +17,6 @@ public sealed class Account
         {
             throw new ArgumentOutOfRangeException(nameof(currency), currency, "Unknown currency.");
         }
-
 
         Id = Guid.NewGuid();
         Owner = owner;
@@ -35,15 +36,34 @@ public sealed class Account
         _ => throw new InvalidOperationException($"Unknown transaction type: {tx.Type}")
     });
 
-    public void Deposit(Money amount, string? description = null)
+    private void EnsureAccountCurrency(Money amount)
     {
         if (amount.Currency != Currency)
         {
             throw new InvalidOperationException(
-                $"Cannot deposit {amount.Currency} to a {Currency} account.");
+                $"Cannot use {amount.Currency} with a {Currency} account.");
         }
+    }
+
+    public void Deposit(Money amount, string? description = null)
+    {
+        EnsureAccountCurrency(amount);
 
         Transaction transaction = new(TransactionType.Deposit, amount, description);
+        _transactions.Add(transaction);
+    }
+
+    public void Withdraw(Money amount, string? description = null)
+    {
+        EnsureAccountCurrency(amount);
+        Money balance = Balance;
+
+        if (amount.Amount > balance.Amount)
+        {
+            throw new InsufficientFundsException(amount, balance);
+        }
+
+        Transaction transaction = new(TransactionType.Withdrawal, amount, description);
         _transactions.Add(transaction);
     }
 }
