@@ -13,13 +13,13 @@ public sealed class TransferService
 
     public void Transfer(Guid fromId, Guid toId, Money amount, string? description = null)
     {
-        Account from = _accounts.GetById(fromId) ?? throw new AccountNotFoundException(fromId);
-        Account to = _accounts.GetById(toId) ?? throw new AccountNotFoundException(toId);
-
-        if (from == to)
+        if (fromId == toId)
         {
             throw new ArgumentException("Cannot transfer money to same account.", nameof(fromId));
         }
+
+        Account from = _accounts.GetById(fromId) ?? throw new AccountNotFoundException(fromId);
+        Account to = _accounts.GetById(toId) ?? throw new AccountNotFoundException(toId);
 
 
         if (from.Currency != to.Currency)

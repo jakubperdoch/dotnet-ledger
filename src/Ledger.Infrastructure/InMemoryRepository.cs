@@ -15,10 +15,8 @@ public sealed class InMemoryRepository<T> : IRepository<T> where T : IEntity
     {
         if (!_items.TryAdd(item.Id, item))
         {
-            throw new InvalidOperationException($"Entity with id:  {item.Id} already exists.");
+            throw new InvalidOperationException($"Entity with id: {item.Id} already exists.");
         }
-
-        _items.Add(item.Id, item);
     }
 
     public IReadOnlyList<T> GetAll()

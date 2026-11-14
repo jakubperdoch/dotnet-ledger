@@ -294,19 +294,19 @@ public class AccountTests
     [Fact]
     public void GetTransactions_MultipleTransactions_ReturnsOrderedByCreatedAt()
     {
-        FakeTimeProvider clock = new(new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero));
+        FakeTimeProvider clock = new(new DateTimeOffset(2026, 11, 20, 12, 0, 0, TimeSpan.Zero));
         Account account = new("John Doe", Currency.EUR, clock);
 
-        account.Deposit(new Money(100m, Currency.EUR), "First"); // 14.11.
+        account.Deposit(new Money(100m, Currency.EUR), "First"); // 20.11.
         clock.Advance(TimeSpan.FromDays(1));
-        account.Deposit(new Money(200m, Currency.EUR), "Second"); // 15.11.
+        account.Deposit(new Money(200m, Currency.EUR), "Second"); // 21.11.
         clock.Advance(TimeSpan.FromDays(1));
-        account.Withdraw(new Money(50m, Currency.EUR), "Third"); // 16.11.
+        account.Withdraw(new Money(50m, Currency.EUR), "Third"); // 22.11.
 
         IReadOnlyList<Transaction> result = account.GetTransactions(
-            new DateTimeOffset(2026, 11, 14, 0, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 11, 17, 0, 0, 0, TimeSpan.Zero));
+            new DateTimeOffset(2026, 11, 20, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 11, 23, 0, 0, 0, TimeSpan.Zero));
 
-        Assert.Equal(["First", "Second", "Third"], result.Select(tx => tx.Description));
+        Assert.Equal(["Third", "Second", "First"], result.Select(tx => tx.Description));
     }
 }
