@@ -2,7 +2,7 @@ using Ledger.Domain.Exceptions;
 
 namespace Ledger.Domain;
 
-public sealed class Account
+public sealed class Account : IEntity
 {
     private readonly TimeProvider _timeProvider;
     private readonly List<Transaction> _transactions = [];
@@ -29,7 +29,6 @@ public sealed class Account
 
     public string Owner { get; }
     public Currency Currency { get; }
-    public Guid Id { get; }
 
     public Money Balance => _transactions.Aggregate(Money.Zero(Currency), (acc, tx) => tx.Type switch
     {
@@ -37,6 +36,8 @@ public sealed class Account
         TransactionType.Withdrawal => acc - tx.Amount,
         _ => throw new InvalidOperationException($"Unknown transaction type: {tx.Type}")
     });
+
+    public Guid Id { get; }
 
     private void EnsureAccountCurrency(Money amount)
     {

@@ -1,17 +1,26 @@
-using System.Diagnostics.CodeAnalysis;
+using Ledger.Domain.Exceptions;
 
 namespace Ledger.Domain;
 
 public sealed class TransferService
 {
-    [SuppressMessage("Performance", "CA1822:Mark members as static",
-        Justification = "Instance method by design; will be resolved via DI and gain dependencies.")]
-    public void Transfer(Account from, Account to, Money amount, string? description = null)
+    private readonly IRepository<Account> _accounts;
+
+    public TransferService(IRepository<Account> accounts)
     {
+        _accounts = accounts;
+    }
+
+    public void Transfer(Guid fromId, Guid toId, Money amount, string? description = null)
+    {
+        Account from = _accounts.GetById(fromId) ?? throw new AccountNotFoundException(fromId);
+        Account to = _accounts.GetById(toId) ?? throw new AccountNotFoundException(toId);
+
         if (from == to)
         {
-            throw new ArgumentException("Cannot transfer money to same account.", nameof(from));
+            throw new ArgumentException("Cannot transfer money to same account.", nameof(fromId));
         }
+
 
         if (from.Currency != to.Currency)
         {
