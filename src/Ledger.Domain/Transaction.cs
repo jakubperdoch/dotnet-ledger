@@ -2,7 +2,7 @@ namespace Ledger.Domain;
 
 public sealed record Transaction
 {
-    public Transaction(TransactionType type, Money amount,
+    public Transaction(TransactionType type, Money amount, DateTimeOffset createdAt,
         string? description = null)
     {
         // Transactions can be only in positive numbers. TransactionType defines type of transaction
@@ -12,7 +12,7 @@ public sealed record Transaction
         }
 
         Id = Guid.NewGuid();
-        CreatedAt = DateTimeOffset.UtcNow;
+        CreatedAt = createdAt;
         Description = description;
         Type = type;
         Amount = amount;

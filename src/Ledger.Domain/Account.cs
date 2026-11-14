@@ -4,9 +4,10 @@ namespace Ledger.Domain;
 
 public sealed class Account
 {
+    private readonly TimeProvider _timeProvider;
     private readonly List<Transaction> _transactions = [];
 
-    public Account(string owner, Currency currency)
+    public Account(string owner, Currency currency, TimeProvider? timeProvider = null)
     {
         if (string.IsNullOrWhiteSpace(owner))
         {
@@ -21,6 +22,7 @@ public sealed class Account
         Id = Guid.NewGuid();
         Owner = owner;
         Currency = currency;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public IReadOnlyList<Transaction> Transactions => _transactions;
@@ -49,7 +51,7 @@ public sealed class Account
     {
         EnsureAccountCurrency(amount);
 
-        Transaction transaction = new(TransactionType.Deposit, amount, description);
+        Transaction transaction = new(TransactionType.Deposit, amount, _timeProvider.GetUtcNow(), description);
         _transactions.Add(transaction);
     }
 
@@ -63,7 +65,32 @@ public sealed class Account
             throw new InsufficientFundsException(amount, balance);
         }
 
-        Transaction transaction = new(TransactionType.Withdrawal, amount, description);
+        Transaction transaction = new(TransactionType.Withdrawal, amount, _timeProvider.GetUtcNow(), description);
         _transactions.Add(transaction);
+    }
+
+    public IReadOnlyList<Transaction> GetTransactions(DateTimeOffset from, DateTimeOffset to)
+    {
+        if (from > to)
+        {
+            throw new ArgumentOutOfRangeException(nameof(from), from, "'from' cannot be later than 'to'.");
+        }
+
+        return _transactions
+            .Where(tx => tx.CreatedAt >= from && tx.CreatedAt <= to)
+            .OrderByDescending(tx => tx.CreatedAt)
+            .ToList();
+    }
+
+    public Money GetTotal(TransactionType type)
+    {
+        if (!Enum.IsDefined(type))
+        {
+            throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown transaction type.");
+        }
+
+        return _transactions
+            .Where(tx => tx.Type == type)
+            .Aggregate(Money.Zero(Currency), (acc, tx) => acc + tx.Amount);
     }
 }

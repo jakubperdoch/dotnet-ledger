@@ -1,5 +1,7 @@
 using Ledger.Domain.Exceptions;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Ledger.Domain.Tests;
 
 public class AccountTests
@@ -171,5 +173,140 @@ public class AccountTests
         Assert.Equal(new Money(100m, Currency.EUR), ex.Available);
         Assert.Single(account.Transactions);
         Assert.Equal(new Money(100m, Currency.EUR), account.Balance);
+    }
+
+    [Fact]
+    public void GetTotal_WithMultipleDeposits_ReturnsSumOfDeposits()
+    {
+        Account account = new("John Doe", Currency.EUR);
+
+        for (int i = 0; i < 3; i++)
+        {
+            account.Deposit(new Money(100m, Currency.EUR), $"Deposit {i + 1}");
+        }
+
+        Money total = account.GetTotal(TransactionType.Deposit);
+        Assert.Equal(new Money(300m, Currency.EUR), total);
+    }
+
+    [Fact]
+    public void GetTotal_WithMultipleWithdrawals_ReturnsSumOfWithdrawals()
+    {
+        Account account = new("John Doe", Currency.EUR);
+        account.Deposit(new Money(150m, Currency.EUR), "Deposit 1");
+
+        for (int i = 0; i < 3; i++)
+        {
+            account.Withdraw(new Money(50m, Currency.EUR), $"Withdrawal {i + 1}");
+        }
+
+        Money withdraw = account.GetTotal(TransactionType.Withdrawal);
+        Assert.Equal(new Money(150m, Currency.EUR), withdraw);
+    }
+
+    [Fact]
+    public void GetTotal_UnknownTransactionType_Throws()
+    {
+        Account account = new("John Doe", Currency.EUR);
+        TransactionType unknown = (TransactionType)99;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            account.GetTotal(unknown));
+    }
+
+    [Fact]
+    public void GetTransactions_WithinDateRange_ReturnsMatchingTransactions()
+    {
+        FakeTimeProvider clock = new(new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero));
+        Account account = new("John Doe", Currency.EUR, clock);
+
+        account.Deposit(new Money(100m, Currency.EUR), "Before"); // 14.11. 12:00
+        clock.Advance(TimeSpan.FromDays(2));
+        account.Deposit(new Money(200m, Currency.EUR), "Inside"); // 16.11. 12:00
+        clock.Advance(TimeSpan.FromDays(2));
+        account.Withdraw(new Money(30m, Currency.EUR), "After"); // 18.11. 12:00
+
+        IReadOnlyList<Transaction> result = account.GetTransactions(
+            new DateTimeOffset(2026, 11, 15, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 11, 17, 0, 0, 0, TimeSpan.Zero));
+
+        Transaction single = Assert.Single(result);
+        Assert.Equal(new Money(200m, Currency.EUR), single.Amount);
+        Assert.Equal("Inside", single.Description);
+    }
+
+    [Fact]
+    public void GetTransactions_OnExactBoundaryDates_IncludesBoundaryTransactions()
+    {
+        DateTimeOffset from = new(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
+        FakeTimeProvider clock = new(from);
+        Account account = new("John Doe", Currency.EUR, clock);
+
+        account.Deposit(new Money(100m, Currency.EUR), "Start"); // 14.11. 12:00
+        clock.Advance(TimeSpan.FromDays(2));
+        account.Withdraw(new Money(30m, Currency.EUR), "End"); // 16.11. 12:00
+        DateTimeOffset to = clock.GetUtcNow();
+
+        IReadOnlyList<Transaction> result = account.GetTransactions(from, to);
+
+        Assert.Equal(2, result.Count);
+    }
+
+    [Fact]
+    public void GetTransactions_NoTransactionsInDateRange_ReturnsEmptyList()
+    {
+        FakeTimeProvider clock = new(new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero));
+        Account account = new("John Doe", Currency.EUR, clock);
+
+        account.Deposit(new Money(100m, Currency.EUR)); // 14.11. 12:00
+        clock.Advance(TimeSpan.FromDays(2));
+        account.Withdraw(new Money(30m, Currency.EUR)); // 16.11. 12:00
+
+        IReadOnlyList<Transaction> result = account.GetTransactions(
+            new DateTimeOffset(2026, 11, 20, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 11, 25, 0, 0, 0, TimeSpan.Zero));
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void GetTransactions_EmptyAccount_ReturnsEmptyList()
+    {
+        Account account = new("John Doe", Currency.EUR);
+
+        IReadOnlyList<Transaction> result = account.GetTransactions(
+            new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 11, 16, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void GetTransactions_FromAfterTo_ThrowsArgumentOutOfRangeException()
+    {
+        Account account = new("John Doe", Currency.EUR);
+        DateTimeOffset from = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
+        DateTimeOffset to = new(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => account.GetTransactions(from, to));
+    }
+
+    [Fact]
+    public void GetTransactions_MultipleTransactions_ReturnsOrderedByCreatedAt()
+    {
+        FakeTimeProvider clock = new(new DateTimeOffset(2026, 11, 14, 12, 0, 0, TimeSpan.Zero));
+        Account account = new("John Doe", Currency.EUR, clock);
+
+        account.Deposit(new Money(100m, Currency.EUR), "First"); // 14.11.
+        clock.Advance(TimeSpan.FromDays(1));
+        account.Deposit(new Money(200m, Currency.EUR), "Second"); // 15.11.
+        clock.Advance(TimeSpan.FromDays(1));
+        account.Withdraw(new Money(50m, Currency.EUR), "Third"); // 16.11.
+
+        IReadOnlyList<Transaction> result = account.GetTransactions(
+            new DateTimeOffset(2026, 11, 14, 0, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2026, 11, 17, 0, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal(["First", "Second", "Third"], result.Select(tx => tx.Description));
     }
 }
